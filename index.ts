@@ -2,18 +2,28 @@
 
 Intro:
 
-    Project grew and we ended up in a situation with
-    some users starting to have more influence.
-    Therefore, we decided to create a new person type
-    called PowerUser which is supposed to combine
-    everything User and Admin have.
+    PowerUsers idea was bad. Once those users got
+    extended permissions, they started bullying others
+    and we lost a lot of great users.
+    As a response we spent all the remaining money
+    on the marketing and got even more users.
+    We need to start preparing to move everything to a
+    real database. For now we just do some mocks.
+
+    The server API format was decided to be the following:
+
+    In case of success: { status: 'success', data: RESPONSE_DATA }
+    In case of error: { status: 'error', error: ERROR_MESSAGE }
+
+    The API engineer started creating types for this API and
+    quickly figured out that the amount of types needed to be
+    created is too big.
 
 Exercise:
 
-    Define type PowerUser which should have all fields
-    from both User and Admin (except for type),
-    and also have type 'powerUser' without duplicating
-    all the fields in the code.
+    Remove UsersApiResponse and AdminsApiResponse types
+    and use generic type ApiResponse in order to specify API
+    response formats for each of the functions.
 
 */
 
@@ -31,65 +41,116 @@ interface Admin {
     role: string;
 }
 
-type PowerUser = Omit<Admin,'type'> & Omit<User,'type'>& {
-    type:'powerUser'
-};
+type Person = User | Admin;
 
-export type Person = User | Admin | PowerUser;
-
-export const persons: Person[] = [
-    { type: 'user', name: 'Max Mustermann', age: 25, occupation: 'Chimney sweep' },
+const admins: Admin[] = [
     { type: 'admin', name: 'Jane Doe', age: 32, role: 'Administrator' },
-    { type: 'user', name: 'Kate Müller', age: 23, occupation: 'Astronaut' },
-    { type: 'admin', name: 'Bruce Willis', age: 64, role: 'World saver' },
-    {
-        type: 'powerUser',
-        name: 'Nikki Stone',
-        age: 45,
-        role: 'Moderator',
-        occupation: 'Cat groomer'
-    }
+    { type: 'admin', name: 'Bruce Willis', age: 64, role: 'World saver' }
 ];
 
-function isAdmin(person: Person): person is Admin {
-    return person.type === 'admin';
+const users: User[] = [
+    { type: 'user', name: 'Max Mustermann', age: 25, occupation: 'Chimney sweep' },
+    { type: 'user', name: 'Kate Müller', age: 23, occupation: 'Astronaut' }
+];
+
+export type ApiResponse<T> = {
+        status: 'success';
+        data: T;
+    } |
+    {
+        status: 'error';
+        error: string;
+    };
+
+export function requestAdmins(callback: (response: ApiResponse<Admin[]>) => void) {
+    callback({
+        status: 'success',
+        data: admins
+    });
 }
 
-function isUser(person: Person): person is User {
-    return person.type === 'user';
+
+export function requestUsers(callback: (response: ApiResponse<User[]>) => void) {
+    callback({
+        status: 'success',
+        data: users
+    });
 }
 
-function isPowerUser(person: Person): person is PowerUser {
-    return person.type === 'powerUser';
+export function requestCurrentServerTime(callback: (response: ApiResponse<number>) => void) {
+    callback({
+        status: 'success',
+        data: Date.now()
+    });
 }
 
-export function logPerson(person: Person) {
-    let additionalInformation: string = '';
-    if (isAdmin(person)) {
-        additionalInformation = person.role;
+export function requestCoffeeMachineQueueLength(callback: (response: ApiResponse<number>) => void) {
+    callback({
+        status: 'error',
+        error: 'Numeric value has exceeded Number.MAX_SAFE_INTEGER.'
+    });
+}
+
+function logPerson(person: Person) {
+    console.log(
+        ` - ${person.name}, ${person.age}, ${person.type === 'admin' ? person.role : person.occupation}`
+    );
+}
+
+function startTheApp(callback: (error: Error | null) => void) {
+    requestAdmins((adminsResponse) => {
+        console.log('Admins:');
+        if (adminsResponse.status === 'success') {
+            adminsResponse.data.forEach(logPerson);
+        } else {
+            return callback(new Error(adminsResponse.error));
+        }
+
+        console.log();
+
+        requestUsers((usersResponse) => {
+            console.log('Users:');
+            if (usersResponse.status === 'success') {
+                usersResponse.data.forEach(logPerson);
+            } else {
+                return callback(new Error(usersResponse.error));
+            }
+
+            console.log();
+
+            requestCurrentServerTime((serverTimeResponse) => {
+                console.log('Server time:');
+                if (serverTimeResponse.status === 'success') {
+                    console.log(`   ${new Date(serverTimeResponse.data).toLocaleString()}`);
+                } else {
+                    return callback(new Error(serverTimeResponse.error));
+                }
+
+                console.log();
+
+                requestCoffeeMachineQueueLength((coffeeMachineQueueLengthResponse) => {
+                    console.log('Coffee machine queue length:');
+                    if (coffeeMachineQueueLengthResponse.status === 'success') {
+                        console.log(`   ${coffeeMachineQueueLengthResponse.data}`);
+                    } else {
+                        return callback(new Error(coffeeMachineQueueLengthResponse.error));
+                    }
+
+                    callback(null);
+                });
+            });
+        });
+    });
+}
+
+startTheApp((e: Error | null) => {
+    console.log();
+    if (e) {
+        console.log(`Error: "${e.message}", but it's fine, sometimes errors are inevitable.`)
+    } else {
+        console.log('Success!');
     }
-    if (isUser(person)) {
-        additionalInformation = person.occupation;
-    }
-    if (isPowerUser(person)) {
-        additionalInformation = `${person.role}, ${person.occupation}`;
-    }
-    console.log(`${person.name}, ${person.age}, ${additionalInformation}`);
-}
-
-console.log('Admins:');
-persons.filter(isAdmin).forEach(logPerson);
-
-console.log();
-
-console.log('Users:');
-persons.filter(isUser).forEach(logPerson);
-
-console.log();
-
-console.log('Power users:');
-persons.filter(isPowerUser).forEach(logPerson);
+});
 
 // In case you are stuck:
-// https://www.typescriptlang.org/docs/handbook/utility-types.html
-// https://www.typescriptlang.org/docs/handbook/2/objects.html#intersection-types
+// https://www.typescriptlang.org/docs/handbook/2/generics.html
