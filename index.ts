@@ -1,37 +1,32 @@
+import {
+    strReverse,
+    strToLower,
+    strToUpper,
+    strRandomize,
+    strInvertCase
+} from 'str-utils';
+
 /*
 
 Intro:
 
-    We have asynchronous functions now, advanced technology.
-    This makes us a tech startup officially now.
-    But one of the consultants spoiled our dreams about
-    inevitable future IT leadership.
-    He said that callback-based asynchronicity is not
-    popular anymore and everyone should use Promises.
-    He promised that if we switch to Promises, this would
-    bring promising results.
+    In order to engage users in the communication with
+    each other we have decided to decorate usernames
+    in various ways. A brief search led us to a library
+    called "str-utils". Bad thing is that it lacks
+    TypeScript declarations.
 
 Exercise:
 
-    We don't want to reimplement all the data-requesting
-    functions. Let's decorate the old callback-based
-    functions with the new Promise-compatible result.
-    The final function should return a Promise which
-    would resolve with the final data directly
-    (i.e. users or admins) or would reject with an error
-    (or type Error).
+    Check str-utils module implementation at:
+    node_modules/str-utils/index.js
+    node_modules/str-utils/README.md
 
-    The function should be named promisify.
+    Provide type declaration for that module in:
+    declarations/str-utils/index.d.ts
 
-Higher difficulty bonus exercise:
-
-    Create a function promisifyAll which accepts an object
-    with functions and returns a new object where each of
-    the function is promisified.
-
-    Rewrite api creation accordingly:
-
-        const api = promisifyAll(oldApi);
+    Try to avoid duplicates of type declarations,
+    use type aliases.
 
 */
 
@@ -53,116 +48,51 @@ type Person = User | Admin;
 
 const admins: Admin[] = [
     { type: 'admin', name: 'Jane Doe', age: 32, role: 'Administrator' },
-    { type: 'admin', name: 'Bruce Willis', age: 64, role: 'World saver' }
+    { type: 'admin', name: 'Bruce Willis', age: 64, role: 'World saver' },
+    { type: 'admin', name: 'Steve', age: 40, role: 'Steve' },
+    { type: 'admin', name: 'Will Bruces', age: 30, role: 'Overseer' },
+    { type: 'admin', name: 'Superwoman', age: 28, role: 'Customer support' }
 ];
 
 const users: User[] = [
     { type: 'user', name: 'Max Mustermann', age: 25, occupation: 'Chimney sweep' },
-    { type: 'user', name: 'Kate Müller', age: 23, occupation: 'Astronaut' }
+    { type: 'user', name: 'Kate Müller', age: 23, occupation: 'Astronaut' },
+    { type: 'user', name: 'Moses', age: 70, occupation: 'Desert guide' },
+    { type: 'user', name: 'Superman', age: 28, occupation: 'Ordinary person' },
+    { type: 'user', name: 'Inspector Gadget', age: 31, occupation: 'Undercover' }
 ];
 
-export type ApiResponse<T> = (
-    {
-        status: 'success';
-        data: T;
-    } |
-    {
-        status: 'error';
-        error: string;
-    }
-);
+const isAdmin = (person: Person): person is Admin => person.type === 'admin';
+const isUser = (person: Person): person is User => person.type === 'user';
 
-type CallbackBasedAsyncFunction<T> = (callback:(response:ApiResponse<T>)=> void) => void;
-type PromiseBasedAsyncFunction<T> = () => Promise<T>;
-
-export function promisify<T>(callback: CallbackBasedAsyncFunction<T>): PromiseBasedAsyncFunction<T> {
-    return () => {
-        return new Promise<T>((resolve, reject)=>{
-            callback((response)=>{
-                if(response.status === 'success'){
-                    resolve(response.data);
-                }
-                else{
-                    reject(new Error(response.error))
-                }
-            })
-        })
-    };
-}
-
-type SourceObject<T> = {[K in keyof T]:CallbackBasedAsyncFunction<T[K]>};
-type PromisifiedObject<T> = {[K in keyof T]:PromiseBasedAsyncFunction<T[K]>};
-
-export function promisifyAll<T extends {[key:string]:any}>(obj:SourceObject<T>):PromisifiedObject<T>{
-    const result:Partial<PromisifiedObject<T>> = {};
-
-    for(const key of Object.keys(obj) as (keyof T)[]){
-        result[key] = promisify(obj[key])
-    }
-
-    return result as PromisifiedObject<T>
-}
-
-const oldApi = {
-    requestAdmins(callback: (response: ApiResponse<Admin[]>) => void) {
-        callback({
-            status: 'success',
-            data: admins
-        });
-    },
-    requestUsers(callback: (response: ApiResponse<User[]>) => void) {
-        callback({
-            status: 'success',
-            data: users
-        });
-    },
-    requestCurrentServerTime(callback: (response: ApiResponse<number>) => void) {
-        callback({
-            status: 'success',
-            data: Date.now()
-        });
-    },
-    requestCoffeeMachineQueueLength(callback: (response: ApiResponse<number>) => void) {
-        callback({
-            status: 'error',
-            error: 'Numeric value has exceeded Number.MAX_SAFE_INTEGER.'
-        });
-    }
-};
-
-export const api = promisifyAll(oldApi);
+export const nameDecorators = [
+    strReverse,
+    strToLower,
+    strToUpper,
+    strRandomize,
+    strInvertCase
+];
 
 function logPerson(person: Person) {
+    let additionalInformation: string = '';
+    if (isAdmin(person)) {
+        additionalInformation = person.role;
+    }
+    if (isUser(person)) {
+        additionalInformation = person.occupation;
+    }
+    const randomNameDecorator = nameDecorators[
+        Math.round(Math.random() * (nameDecorators.length - 1))
+    ];
+    const name = randomNameDecorator(person.name);
     console.log(
-        ` - ${person.name}, ${person.age}, ${person.type === 'admin' ? person.role : person.occupation}`
+        ` - ${name}, ${person.age}, ${additionalInformation}`
     );
 }
 
-async function startTheApp() {
-    console.log('Admins:');
-    (await api.requestAdmins()).forEach(logPerson);
-    console.log();
-
-    console.log('Users:');
-    (await api.requestUsers()).forEach(logPerson);
-    console.log();
-
-    console.log('Server time:');
-    console.log(`   ${new Date(await api.requestCurrentServerTime()).toLocaleString()}`);
-    console.log();
-
-    console.log('Coffee machine queue length:');
-    console.log(`   ${await api.requestCoffeeMachineQueueLength()}`);
-}
-
-startTheApp().then(
-    () => {
-        console.log('Success!');
-    },
-    (e: Error) => {
-        console.log(`Error: "${e.message}", but it's fine, sometimes errors are inevitable.`);
-    }
-);
+([] as Person[])
+    .concat(users, admins)
+    .forEach(logPerson);
 
 // In case you are stuck:
-// https://www.typescriptlang.org/docs/handbook/2/generics.html
+// https://www.typescriptlang.org/docs/handbook/modules.html#ambient-modules
